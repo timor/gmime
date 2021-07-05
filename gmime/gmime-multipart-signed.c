@@ -352,6 +352,40 @@ check_protocol_supported (const char *protocol, const char *supported)
 	return rv;
 }
 
+static gboolean
+check_protocol_match (const char *protocol, const char * mime_type)
+{
+	const char *subtype;
+	const char *protocol_subtype;
+	char *xsupported;
+	gboolean rv;
+
+	if (!protocol)
+		return FALSE;
+
+	if (!g_ascii_strcasecmp (protocol, mime_type))
+		return TRUE;
+
+	if (!(subtype = strrchr (mime_type, '/')))
+		return FALSE;
+	subtype++;
+
+	if (!(protocol_subtype = strrchr (protocol, '/')))
+		return FALSE;
+	protocol_subtype++;
+
+	if (!g_ascii_strncasecmp (protocol_subtype, "x-", 2))
+		protocol_subtype += 2;
+	if (!g_ascii_strncasecmp (subtype, "x-", 2))
+		subtype += 2;
+
+	if (!g_ascii_strcasecmp (protocol_subtype, subtype))
+		return TRUE;
+
+	return FALSE;
+}
+
+
 
 /**
  * g_mime_multipart_signed_verify:
@@ -418,7 +452,8 @@ g_mime_multipart_signed_verify (GMimeMultipartSigned *mps, GMimeVerifyFlags flag
 	
 	/* make sure the protocol matches the signature content-type */
 	mime_type = g_mime_content_type_get_mime_type (signature->content_type);
-	if (g_ascii_strcasecmp (mime_type, protocol) != 0) {
+
+	if (!check_protocol_match (protocol, mime_type)) {
 		g_set_error_literal (err, GMIME_ERROR, GMIME_ERROR_PARSE_ERROR,
 				     _("Cannot verify multipart/signed part: signature content-type does not match protocol."));
 		g_object_unref (ctx);
